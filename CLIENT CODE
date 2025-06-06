@@ -1,0 +1,123 @@
+CLIENT 
+using System;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace client
+{
+    public partial class Form1 : Form
+    {
+        TcpClient client;
+        NetworkStream stream;
+        bool isConnected = false;
+
+        public Form1()
+        {
+            InitializeComponent();
+            this.Text = "💬 Socket Chat Client";
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            btnDisconnect.Enabled = false;
+            btnSendClient.Enabled = false;
+        }
+
+        private void btnConnect_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                client = new TcpClient("127.0.0.1", 5000); // localhost
+                stream = client.GetStream();
+                isConnected = true;
+
+                Log("✅ Connected to server.");
+                Task.Run(() => ReceiveMessages());
+
+                btnConnect.Enabled = false;
+                btnDisconnect.Enabled = true;
+                btnSendClient.Enabled = true;
+            }
+            catch (Exception ex)
+            {
+                Log("❌ Connection failed: " + ex.Message);
+            }
+        }
+
+        private void btnDisconnect_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                isConnected = false;
+                stream?.Close();
+                client?.Close();
+
+                Log("🛑 Disconnected from server.");
+                btnConnect.Enabled = true;
+                btnDisconnect.Enabled = false;
+                btnSendClient.Enabled = false;
+            }
+            catch (Exception ex)
+            {
+                Log("⚠️ Error: " + ex.Message);
+            }
+        }
+
+        private void btnSendClient_Click(object sender, EventArgs e)
+        {
+            if (!isConnected) return;
+
+            string msg = txtClientMessage.Text.Trim();
+            if (string.IsNullOrEmpty(msg)) return;
+
+            byte[] buffer = Encoding.UTF8.GetBytes("Client: " + msg);
+            try
+            {
+                stream.Write(buffer, 0, buffer.Length);
+                Log("🟢 You: " + msg);
+                txtClientMessage.Clear();
+            }
+            catch (Exception ex)
+            {
+                Log("⚠️ Send failed: " + ex.Message);
+            }
+        }
+
+        private void ReceiveMessages()
+        {
+            byte[] buffer = new byte[1024];
+            int byteCount;
+
+            try
+            {
+                while (isConnected && (byteCount = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    string msg = Encoding.UTF8.GetString(buffer, 0, byteCount);
+                    Log("📩 " + msg);
+                }
+            }
+            catch
+            {
+                if (isConnected)
+                    Log("⚠️ Lost connection to server.");
+            }
+        }
+
+        private void Log(string message)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() =>
+                    txtClientLog.AppendText($"{DateTime.Now:HH:mm:ss} ➤ {message}{Environment.NewLine}")
+                )); 
+            }
+            else
+            {
+                txtClientLog.AppendText($"{DateTime.Now:HH:mm:ss} ➤ {message}{Environment.NewLine}");
+            }
+        }
+    }
+}
+            
